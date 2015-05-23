@@ -3,7 +3,7 @@
 -module(stripe).
 
 -export([token_create/10, token_create_bank/3]).
--export([customer_create/3, customer_get/1, customer_update/3]).
+-export([customer_create/3, customer_get/1, customer_update/3, customer_delete/1]).
 -export([charge_customer/4, charge_card/4]).
 -export([subscription_update/3, subscription_update/5,
          subscription_update/6, subscription_cancel/2, subscription_cancel/3]).
@@ -19,6 +19,7 @@
 
 -define(VSN_BIN, <<"0.8.0">>).
 -define(VSN_STR, binary_to_list(?VSN_BIN)).
+-define(PROFILE_HTTPC, stripe).
 
 % Stripe limit for paginated requests, change
 % this number if stripe changes it in the future
@@ -70,6 +71,14 @@ customer_update(CustomerId, Token, Email) ->
   Fields = [{"card", Token},
             {"email", Email}],
   request_customer_update(CustomerId, Fields).
+
+
+%%%--------------------------------------------------------------------
+%%% Customer delete
+%%%--------------------------------------------------------------------
+-spec customer_delete(customer_id()) -> result.
+customer_delete(CustomerId) ->
+  request_customer_delete(CustomerId).
 
 %%%--------------------------------------------------------------------
 %%% Token Generation
@@ -209,6 +218,9 @@ request_customer_create(Fields) ->
 request_customer_update(CustomerId, Fields) ->
   request_run(gen_customer_url(CustomerId), post, Fields).
 
+request_customer_delete(CustomerId) ->
+  request_run(gen_customer_url(CustomerId), delete, []).
+
 request_token_create(Fields) ->
   request(tokens, post, Fields).
 
@@ -293,7 +305,7 @@ request_run(URL, Method, Fields) ->
               delete -> {URL, Headers};
                    _ -> {URL, Headers, Type, Body}
             end,
-  Requested = httpc:request(Method, Request, [], []),
+  Requested = httpc:request(Method, Request, [], [], httpc_profile()),
   resolve(Requested).
 
 %% Much like request_run/3 except that a tuple is returned with the
@@ -307,7 +319,7 @@ request_run_all(URL) ->
              {"User-Agent", "Stripe/v1 ErlangBindings/" ++ ?VSN_STR},
              {"Authorization", auth_key()}],
   Request = {URL, Headers},
-  Requested = httpc:request(get, Request, [], []),
+  Requested = httpc:request(get, Request, [], [], httpc_profile()),
 
   case resolve(Requested) of
     {error, _} = Error ->
@@ -472,6 +484,12 @@ json_to_record(<<"transfer">>, DecodedResult) ->
                    recipient    = ?V(recipient),
                    statement_descriptor = ?V(statement_descriptor)};
 
+%% stripe delete doesn't return the object type so we do a full match of object
+%% returned to make sure its a delete. (its good to be a little optimistic) 
+json_to_record(undefined, [{<<"deleted">>, Status}, {<<"id">>, ObjectId}]) ->
+  #stripe_delete{id     = ObjectId,
+                 status = Status};
+
 json_to_record(Type, DecodedResult) ->
   error_logger:error_msg({unimplemented, ?MODULE, json_to_record, Type, DecodedResult}),
   {not_implemented_yet, Type, DecodedResult}.
@@ -550,6 +568,9 @@ ua_json() ->
            {<<"lang">>, <<"erlang">>},
            {<<"publisher">>, <<"mattsta">>}],
   binary_to_list(iolist_to_binary(mochijson2:encode(Props))).
+
+httpc_profile() ->
+  env(profile_stripe, default).
 
 auth_key() ->
   Token = env(auth_token),

@@ -302,6 +302,10 @@
                           account_balance :: amount()
                          }).
 
+-record(stripe_delete, {id     :: customer_id() | plan_id() | coupon_id() | invoice_id(),
+                        status :: atom()
+                       }).
+
 -record(stripe_event, {id      :: event_id(),
                        type    :: event_type(),
                        created :: epoch(),
