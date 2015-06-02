@@ -7,6 +7,7 @@
 -export([charge_customer/4, charge_card/4]).
 -export([subscription_update/3, subscription_update/5,
          subscription_update/6, subscription_cancel/2, subscription_cancel/3]).
+-export([plan_get/1]).
 -export([customer/1, event/1, invoiceitem/1]).
 -export([recipient_create/6, recipient_update/6]).
 -export([transfer_create/5, transfer_cancel/1]).
@@ -126,6 +127,13 @@ subscription_cancel(Customer, AtPeriodEnd) when is_boolean(AtPeriodEnd) ->
 subscription_cancel(Customer, Subscription, AtPeriodEnd) when is_boolean(AtPeriodEnd) ->
   Fields = [{"at_period_end", AtPeriodEnd}],
   request_subscription(unsubscribe, Customer, Subscription, Fields, AtPeriodEnd).
+
+%%%--------------------------------------------------------------------
+%%% plan get/updating/creation and removal
+%%%--------------------------------------------------------------------
+plan_get(Id) ->
+  Url = gen_plan_url(Id),
+  request_run(Url, get, []).
 
 %%%--------------------------------------------------------------------
 %%% Recipient Management
@@ -345,7 +353,7 @@ resolve({error, Reason}) ->
 
 -spec resolve_status(pos_integer(), json()) ->
     #stripe_card{} | #stripe_token{} | #stripe_event{} |
-    #stripe_customer{} | #stripe_error{}.
+    #stripe_customer{} | #stripe_plan{} | #stripe_error{}.
 % success range conditions stolen from stripe-python
 resolve_status(HTTPStatus, SuccessBody) when
     HTTPStatus >= 200 andalso HTTPStatus < 300 ->
@@ -404,6 +412,15 @@ json_to_record(<<"token">>, DecodedResult) ->
                 livemode  = ?V(livemode),
                 card = proplist_to_card(?V(card)),
                 bank_account = proplist_to_bank_account(?V(bank_account))};
+
+json_to_record(<<"plan">>, DecodedResult) ->
+  #stripe_plan{id             = ?V(id),
+               currency       = check_to_atom(?V(currency)),
+               interval       = ?V(interval),
+               interval_count = ?V(interval_count),
+               name           = ?V(name),
+               amount         = ?V(amount),
+               livemode       = ?V(livemode)};
 
 json_to_record(<<"customer">>, DecodedResult) ->
   #stripe_customer{id              = ?V(id),
@@ -604,6 +621,11 @@ gen_customer_url(CustomerId) when is_binary(CustomerId) ->
   gen_customer_url(binary_to_list(CustomerId));
 gen_customer_url(CustomerId) when is_list(CustomerId) ->
   "https://api.stripe.com/v1/customers/" ++ CustomerId.
+
+gen_plan_url(PlanId) when is_binary(PlanId) ->
+  gen_plan_url(binary_to_list(PlanId));
+gen_plan_url(PlanId) when is_list(PlanId) ->
+  "https://api.stripe.com/v1/plans/" ++ PlanId.
 
 gen_recipient_url(RecipientId) when is_binary(RecipientId) ->
   gen_recipient_url(binary_to_list(RecipientId));
