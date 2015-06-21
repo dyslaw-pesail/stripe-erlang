@@ -5,8 +5,9 @@
 -export([token_create/10, token_create_bank/3]).
 -export([customer_create/3, customer_get/1, customer_update/3, customer_delete/1]).
 -export([charge_customer/4, charge_card/4]).
--export([subscription_update/3, subscription_update/5,
-         subscription_update/6, subscription_cancel/2, subscription_cancel/3]).
+-export([subscription_update/3, subscription_update/5, subscription_update/6, 
+         subscription_cancel/2, subscription_cancel/3]).
+         %%subscription_get/1]).
 -export([plan_get/1]).
 -export([customer/1, event/1, invoiceitem/1]).
 -export([recipient_create/6, recipient_update/6]).
@@ -430,7 +431,8 @@ json_to_record(<<"customer">>, DecodedResult) ->
                    email           = ?V(email),
                    delinquent      = ?V(delinquent),
                    discount        = json_to_record(<<"discount">>, ?V(discount)),
-                   account_balance = ?V(account_balance)};
+                   account_balance = ?V(account_balance),
+                   subscriptions   = json_to_record(<<"list">>, ?V(subscriptions))};
 
 % We don't have eunit tests for discount decoding yet.  Use at your own risk.
 json_to_record(<<"discount">>, null) -> null;

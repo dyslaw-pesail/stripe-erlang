@@ -299,7 +299,8 @@
                           email           :: email(),
                           delinquent      :: boolean(),
                           discount        :: #stripe_discount{},
-                          account_balance :: amount()
+                          account_balance :: amount(),
+                          subscriptions
                          }).
 
 -record(stripe_delete, {id     :: customer_id() | plan_id() | coupon_id() | invoice_id(),
